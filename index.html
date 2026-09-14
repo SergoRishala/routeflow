@@ -1,0 +1,2260 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Транспортна задача | Оптимізація маршруту & Дозаправка</title>
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #2563eb;
+            --primary-hover: #1d4ed8;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --danger: #ef4444;
+            --border-color: #e2e8f0;
+            --text-main: #0f172a;
+            --text-muted: #64748b;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            color: var(--text-main);
+            height: 100vh;
+            display: flex;
+            overflow: hidden;
+            background-color: #f8fafc;
+        }
+
+        /* Sidebar Desktop */
+        #sidebar {
+            width: 440px;
+            min-width: 380px;
+            height: 100vh;
+            background: #ffffff;
+            box-shadow: 4px 0 24px rgba(0, 0, 0, 0.08);
+            z-index: 1000;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            transition: transform 0.3s ease, height 0.3s ease;
+        }
+
+        .sidebar-header {
+            padding: 16px 20px;
+            background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+            color: #ffffff;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-shrink: 0;
+        }
+
+        .header-title {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .header-title .icon {
+            font-size: 24px;
+            background: rgba(255, 255, 255, 0.15);
+            padding: 8px;
+            border-radius: 12px;
+            display: inline-flex;
+        }
+
+        .header-title h1 {
+            font-size: 17px;
+            font-weight: 700;
+            letter-spacing: -0.3px;
+        }
+
+        .header-title p {
+            font-size: 11px;
+            color: #94a3b8;
+        }
+
+        .mobile-drawer-toggle {
+            display: none;
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+            border: none;
+            padding: 6px 12px;
+            border-radius: 8px;
+            font-size: 12px;
+            font-weight: 700;
+            cursor: pointer;
+        }
+
+        .sidebar-content {
+            flex: 1;
+            overflow-y: auto;
+            padding: 16px 18px;
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+        }
+
+        /* Smart Search */
+        .search-container { position: relative; }
+
+        .search-input-wrapper {
+            display: flex;
+            align-items: center;
+            background: #f1f5f9;
+            border: 1.5px solid transparent;
+            border-radius: 12px;
+            padding: 9px 12px;
+            transition: all 0.2s;
+        }
+
+        .search-input-wrapper:focus-within {
+            background: #ffffff;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.12);
+        }
+
+        .search-input-wrapper input {
+            border: none;
+            outline: none;
+            background: transparent;
+            font-size: 13.5px;
+            width: 100%;
+            font-family: inherit;
+            color: var(--text-main);
+        }
+
+        .search-chips {
+            display: flex;
+            gap: 6px;
+            overflow-x: auto;
+            padding: 6px 0 2px;
+            scrollbar-width: none;
+        }
+        .search-chips::-webkit-scrollbar { display: none; }
+
+        .chip {
+            background: #f1f5f9;
+            border: 1px solid #e2e8f0;
+            padding: 4px 9px;
+            border-radius: 20px;
+            font-size: 11.5px;
+            font-weight: 600;
+            color: #475569;
+            cursor: pointer;
+            white-space: nowrap;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+        .chip:hover { background: #e2e8f0; color: var(--primary); }
+
+        .search-results-panel {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background: #ffffff;
+            border-radius: 14px;
+            box-shadow: 0 12px 30px rgba(0,0,0,0.18);
+            border: 1px solid var(--border-color);
+            margin-top: 6px;
+            z-index: 2000;
+            max-height: 280px;
+            overflow-y: auto;
+            display: none;
+        }
+
+        .search-header {
+            padding: 10px 12px;
+            background: #f8fafc;
+            border-bottom: 1px solid #e2e8f0;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            font-size: 12px;
+            font-weight: 700;
+            color: #475569;
+        }
+
+        .search-actions { display: flex; gap: 6px; }
+
+        .btn-search-action {
+            background: #e0e7ff;
+            color: #3730a3;
+            border: none;
+            padding: 3px 8px;
+            border-radius: 6px;
+            font-size: 11px;
+            font-weight: 700;
+            cursor: pointer;
+        }
+
+        .search-item {
+            padding: 9px 12px;
+            border-bottom: 1px solid #f1f5f9;
+            cursor: pointer;
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 10px;
+        }
+        .search-item:hover { background: #eff6ff; }
+
+        .search-item-info { display: flex; gap: 8px; align-items: flex-start; }
+        .search-item-icon { font-size: 17px; margin-top: 1px; flex-shrink: 0; }
+        .search-item-title { font-size: 13px; font-weight: 700; color: #1e293b; }
+        .search-item-addr { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+
+        .btn-add-search-item {
+            background: #f1f5f9;
+            border: 1px solid #cbd5e1;
+            padding: 3px 7px;
+            border-radius: 6px;
+            font-size: 11px;
+            font-weight: 700;
+            color: var(--primary);
+            cursor: pointer;
+            flex-shrink: 0;
+        }
+
+        /* Vehicles Grid */
+        .vehicle-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 6px;
+            margin-bottom: 8px;
+        }
+
+        .vehicle-btn {
+            background: #f8fafc;
+            border: 1.5px solid var(--border-color);
+            border-radius: 10px;
+            padding: 7px 4px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 3px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .vehicle-btn.active {
+            background: #eff6ff;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.2);
+        }
+        .vehicle-btn .v-icon { font-size: 19px; }
+        .vehicle-btn .v-label { font-size: 10.5px; font-weight: 700; color: #334155; }
+
+        /* Card Section */
+        .card {
+            background: #ffffff;
+            border: 1px solid var(--border-color);
+            border-radius: 14px;
+            padding: 13px 15px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.03);
+        }
+
+        .card-title {
+            font-size: 12px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: var(--text-muted);
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+            margin-bottom: 8px;
+        }
+
+        .form-row-3 {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 6px;
+            margin-bottom: 8px;
+        }
+
+        .form-group { display: flex; flex-direction: column; gap: 4px; }
+        .form-group label { font-size: 11px; font-weight: 600; color: #475569; }
+
+        .form-group input, .form-group select {
+            padding: 7px 9px;
+            border: 1.5px solid var(--border-color);
+            border-radius: 8px;
+            font-size: 12px;
+            font-family: inherit;
+            color: var(--text-main);
+            outline: none;
+            background: #f8fafc;
+        }
+        .form-group input:focus, .form-group select:focus {
+            border-color: var(--primary);
+            background: #ffffff;
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+        }
+
+        /* Reorderable Points List */
+        .points-list {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            max-height: 220px;
+            overflow-y: auto;
+            padding-right: 2px;
+        }
+
+        .point-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 7px 9px;
+            background: #f8fafc;
+            border: 1.5px solid #edf2f7;
+            border-radius: 9px;
+            font-size: 12px;
+            cursor: grab;
+            transition: all 0.15s;
+            user-select: none;
+        }
+
+        .point-item:active { cursor: grabbing; }
+
+        .point-item.dragging {
+            opacity: 0.4;
+            background: #e0e7ff;
+            border-color: var(--primary);
+        }
+
+        .point-item.drag-over {
+            border-top: 2.5px solid var(--primary);
+            transform: translateY(-2px);
+        }
+
+        .point-left {
+            display: flex;
+            align-items: center;
+            gap: 7px;
+            overflow: hidden;
+            flex: 1;
+        }
+
+        .drag-handle {
+            color: #94a3b8;
+            font-size: 16px;
+            cursor: grab;
+            padding: 0 2px;
+        }
+
+        .point-badge {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: var(--primary);
+            color: white;
+            font-size: 10px;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+        .point-badge.start { background: var(--success); }
+        .point-badge.finish { background: var(--danger); }
+
+        .point-name {
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            font-weight: 600;
+            color: #1e293b;
+        }
+
+        .point-actions {
+            display: flex;
+            align-items: center;
+            gap: 3px;
+            flex-shrink: 0;
+        }
+
+        .btn-reorder {
+            background: #f1f5f9;
+            border: 1px solid #cbd5e1;
+            color: #475569;
+            border-radius: 5px;
+            padding: 3px 6px;
+            font-size: 10px;
+            cursor: pointer;
+            font-weight: 700;
+        }
+        .btn-reorder:hover { background: #e2e8f0; color: var(--primary); }
+
+        .btn-set-role {
+            background: #f1f5f9;
+            border: 1px solid #cbd5e1;
+            border-radius: 5px;
+            padding: 3px 5px;
+            font-size: 10px;
+            cursor: pointer;
+            font-weight: 700;
+        }
+        .btn-set-role:hover { background: #e2e8f0; }
+
+        .btn-delete-point {
+            background: none;
+            border: none;
+            color: #94a3b8;
+            cursor: pointer;
+            padding: 3px;
+            border-radius: 4px;
+            font-size: 13px;
+        }
+        .btn-delete-point:hover { color: var(--danger); background: #fee2e2; }
+
+        .empty-points-hint {
+            text-align: center;
+            padding: 14px 8px;
+            color: var(--text-muted);
+            font-size: 12px;
+            line-height: 1.4;
+            background: #f8fafc;
+            border: 1.5px dashed #cbd5e1;
+            border-radius: 10px;
+        }
+
+        /* Calculate Button */
+        .btn-calculate {
+            background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+            color: white;
+            border: none;
+            border-radius: 12px;
+            padding: 12px 16px;
+            font-size: 14px;
+            font-weight: 700;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            box-shadow: 0 4px 14px rgba(37, 99, 235, 0.35);
+            transition: all 0.2s ease;
+        }
+        .btn-calculate:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 6px 18px rgba(37, 99, 235, 0.45);
+        }
+        .btn-calculate:disabled {
+            background: #cbd5e1;
+            box-shadow: none;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        /* Results Card */
+        #resultsCard {
+            display: none;
+            animation: fadeIn 0.3s ease-in-out;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(8px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+            margin-bottom: 10px;
+        }
+
+        .metric-box {
+            background: #f8fafc;
+            border: 1px solid var(--border-color);
+            border-radius: 9px;
+            padding: 9px;
+            text-align: center;
+        }
+        .metric-value { font-size: 17px; font-weight: 800; color: #1e293b; margin-top: 1px; }
+        .metric-label { font-size: 10px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; }
+
+        /* Refueling Box */
+        .refuel-alert-box {
+            background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%);
+            border: 1.5px solid #fde68a;
+            border-radius: 10px;
+            padding: 10px 12px;
+            margin-bottom: 10px;
+            font-size: 12px;
+            color: #92400e;
+        }
+        .refuel-title { font-weight: 800; display: flex; align-items: center; gap: 6px; margin-bottom: 4px; }
+        .refuel-item { font-size: 11.5px; margin-top: 4px; padding-left: 10px; position: relative; }
+        .refuel-item::before { content: '•'; position: absolute; left: 0; font-weight: bold; }
+
+        .savings-banner {
+            background: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%);
+            border: 1px solid #a7f3d0;
+            color: #065f46;
+            padding: 8px 10px;
+            border-radius: 8px;
+            font-size: 11px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            margin-bottom: 10px;
+        }
+
+        .btn-gmaps {
+            background: #10b981;
+            color: white;
+            text-decoration: none;
+            padding: 10px;
+            border-radius: 9px;
+            font-size: 12.5px;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            margin-bottom: 6px;
+            border: none;
+            cursor: pointer;
+            width: 100%;
+        }
+        .btn-gmaps:hover { background: #059669; }
+
+        .btn-qr {
+            background: #f1f5f9;
+            color: #334155;
+            border: 1px solid #cbd5e1;
+            padding: 8px;
+            border-radius: 8px;
+            font-size: 12px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            cursor: pointer;
+            width: 100%;
+        }
+        .btn-qr:hover { background: #e2e8f0; }
+
+        /* Itinerary Colored Steps */
+        .itinerary {
+            margin-top: 10px;
+            border-top: 1px solid var(--border-color);
+            padding-top: 8px;
+        }
+
+        .itinerary-step {
+            position: relative;
+            padding-left: 18px;
+            margin-bottom: 8px;
+        }
+        .itinerary-step::before {
+            content: '';
+            position: absolute;
+            left: 5px;
+            top: 5px;
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+            background: var(--primary);
+        }
+        .itinerary-step:not(:last-child)::after {
+            content: '';
+            position: absolute;
+            left: 7.5px;
+            top: 13px;
+            width: 2px;
+            height: calc(100% - 4px);
+            background: #e2e8f0;
+        }
+        .itinerary-title { font-size: 12px; font-weight: 700; }
+        .itinerary-leg {
+            font-size: 10.5px;
+            margin-top: 2px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .leg-color-badge {
+            width: 10px;
+            height: 10px;
+            border-radius: 2px;
+            display: inline-block;
+            flex-shrink: 0;
+        }
+
+        /* Map */
+        #map { flex: 1; height: 100vh; z-index: 1; }
+
+        /* Floating Simulator Player */
+        .simulator-bar {
+            position: absolute;
+            bottom: 24px;
+            left: 460px;
+            right: 30px;
+            max-width: 760px;
+            background: rgba(255, 255, 255, 0.96);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(226, 232, 240, 0.8);
+            border-radius: 18px;
+            box-shadow: 0 16px 36px rgba(0, 0, 0, 0.15);
+            padding: 12px 16px;
+            z-index: 2500;
+            display: none;
+            flex-direction: column;
+            gap: 8px;
+            animation: slideUp 0.3s ease-out;
+        }
+        @keyframes slideUp {
+            from { transform: translateY(20px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+
+        .sim-header { display: flex; align-items: center; justify-content: space-between; }
+        .sim-status { display: flex; align-items: center; gap: 8px; }
+        .sim-vehicle-icon { font-size: 24px; background: #eff6ff; padding: 5px; border-radius: 10px; }
+        .sim-info-title { font-size: 12.5px; font-weight: 800; color: #1e293b; }
+        .sim-info-sub { font-size: 11px; color: var(--text-muted); }
+
+        .sim-controls { display: flex; align-items: center; gap: 6px; }
+
+        .btn-sim {
+            background: #2563eb;
+            color: white;
+            border: none;
+            padding: 7px 12px;
+            border-radius: 8px;
+            font-size: 12px;
+            font-weight: 700;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        .btn-sim:hover { background: #1d4ed8; }
+
+        .btn-sim-sec {
+            background: #f1f5f9;
+            color: #334155;
+            border: 1px solid #cbd5e1;
+            padding: 6px 10px;
+            border-radius: 7px;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        .speed-btn-group { display: flex; background: #f1f5f9; border-radius: 7px; padding: 2px; }
+        .speed-btn {
+            background: transparent;
+            border: none;
+            padding: 3px 6px;
+            font-size: 10.5px;
+            font-weight: 700;
+            color: #64748b;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        .speed-btn.active { background: white; color: #2563eb; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+
+        .sim-progress-track {
+            width: 100%;
+            height: 6px;
+            background: #e2e8f0;
+            border-radius: 3px;
+            overflow: hidden;
+        }
+        .sim-progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #2563eb, #10b981);
+            width: 0%;
+            transition: width 0.1s linear;
+        }
+
+        .fuel-indicator { display: flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 700; }
+        .fuel-bar-wrap { width: 75px; height: 7px; background: #e2e8f0; border-radius: 4px; overflow: hidden; }
+        .fuel-bar-fill { height: 100%; background: #10b981; width: 100%; transition: width 0.2s; }
+
+        /* Custom Markers */
+        .custom-pin {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background: #2563eb;
+            border: 3px solid #ffffff;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 800;
+            font-size: 13px;
+            cursor: pointer;
+        }
+        .custom-pin.start-pin { background: #10b981; }
+        .custom-pin.finish-pin { background: #ef4444; }
+
+        .search-pin {
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            background: #f59e0b;
+            border: 2.5px solid #ffffff;
+            box-shadow: 0 4px 10px rgba(245, 158, 11, 0.45);
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 13px;
+            cursor: pointer;
+        }
+
+        /* Pulsing Refuel Station Marker */
+        .refuel-pin-wrapper { position: relative; }
+        .refuel-pin {
+            width: 34px;
+            height: 34px;
+            border-radius: 50%;
+            background: #ea580c;
+            border: 2.5px solid #ffffff;
+            box-shadow: 0 4px 12px rgba(234, 88, 12, 0.6);
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+            cursor: pointer;
+            animation: pulseRadar 2s infinite;
+        }
+        @keyframes pulseRadar {
+            0% { box-shadow: 0 0 0 0 rgba(234, 88, 12, 0.7); }
+            70% { box-shadow: 0 0 0 14px rgba(234, 88, 12, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(234, 88, 12, 0); }
+        }
+
+        .moving-vehicle-icon {
+            font-size: 28px;
+            filter: drop-shadow(0 4px 8px rgba(0,0,0,0.35));
+            display: inline-block;
+            transform-origin: center center;
+            transition: transform 0.15s linear;
+        }
+
+        /* Clear Search Pins Button */
+        .clear-search-btn {
+            position: absolute;
+            top: 14px;
+            left: 460px;
+            z-index: 1000;
+            background: white;
+            padding: 7px 13px;
+            border-radius: 20px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            font-size: 11.5px;
+            font-weight: 700;
+            color: #dc2626;
+            cursor: pointer;
+            border: 1px solid #fca5a5;
+            display: none;
+            align-items: center;
+            gap: 6px;
+        }
+
+        /* Mobile Toggle Floating Button */
+        .mobile-toggle-btn {
+            display: none;
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            z-index: 3500;
+            background: linear-gradient(135deg, #2563eb, #1d4ed8);
+            color: white;
+            border: none;
+            padding: 12px 18px;
+            border-radius: 28px;
+            font-size: 14px;
+            font-weight: 700;
+            box-shadow: 0 8px 24px rgba(37, 99, 235, 0.45);
+            align-items: center;
+            gap: 8px;
+            cursor: pointer;
+        }
+
+        /* QR Modal */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: rgba(15, 23, 42, 0.7);
+            backdrop-filter: blur(4px);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 4000;
+        }
+
+        .modal-box {
+            background: white;
+            border-radius: 20px;
+            padding: 24px;
+            text-align: center;
+            max-width: 340px;
+            width: 90%;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.25);
+        }
+        .modal-box h3 { font-size: 17px; font-weight: 800; margin-bottom: 6px; }
+        .modal-box p { font-size: 12px; color: var(--text-muted); margin-bottom: 14px; }
+        .modal-box img { width: 200px; height: 200px; margin: 0 auto 16px; border-radius: 12px; border: 1px solid #e2e8f0; }
+
+        .modal-close {
+            background: #f1f5f9;
+            color: #334155;
+            border: none;
+            padding: 8px 20px;
+            border-radius: 8px;
+            font-weight: 700;
+            cursor: pointer;
+            font-size: 13px;
+        }
+
+        .toast {
+            position: fixed;
+            bottom: 24px;
+            right: 24px;
+            background: #1e293b;
+            color: white;
+            padding: 10px 18px;
+            border-radius: 10px;
+            font-size: 13px;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.2);
+            z-index: 5000;
+            opacity: 0;
+            transform: translateY(20px);
+            transition: all 0.3s ease;
+            pointer-events: none;
+        }
+        .toast.show { opacity: 1; transform: translateY(0); }
+
+        /* ====================================
+           MOBILE RESPONSIVE MEDIA QUERIES
+           ==================================== */
+        @media (max-width: 768px) {
+            body { flex-direction: column; }
+
+            #sidebar {
+                position: fixed;
+                bottom: 0;
+                left: 0;
+                right: 0;
+                width: 100%;
+                min-width: unset;
+                height: 80vh;
+                border-radius: 20px 20px 0 0;
+                box-shadow: 0 -8px 30px rgba(0, 0, 0, 0.25);
+                transform: translateY(calc(100% - 64px)); /* collapsed by default showing header */
+                z-index: 3000;
+            }
+
+            #sidebar.expanded {
+                transform: translateY(0);
+            }
+
+            .sidebar-header {
+                cursor: pointer;
+                padding: 14px 18px;
+                border-radius: 20px 20px 0 0;
+            }
+
+            .mobile-drawer-toggle { display: block; }
+            .mobile-toggle-btn { display: flex; }
+
+            #map { width: 100vw; height: 100vh; }
+
+            .clear-search-btn {
+                left: 14px;
+                top: 14px;
+            }
+
+            .simulator-bar {
+                left: 14px;
+                right: 14px;
+                bottom: 80px;
+                padding: 10px 14px;
+                max-width: unset;
+            }
+
+            .sim-header {
+                flex-direction: column;
+                gap: 8px;
+                align-items: flex-start;
+            }
+
+            .sim-controls {
+                width: 100%;
+                justify-content: space-between;
+            }
+        }
+    
+        .btn-mobile-connect {
+            background: linear-gradient(135deg, #10b981, #059669);
+            color: white;
+            border: none;
+            padding: 6px 11px;
+            border-radius: 8px;
+            font-size: 11.5px;
+            font-weight: 700;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            transition: all 0.2s;
+            box-shadow: 0 2px 8px rgba(16, 185, 129, 0.3);
+        }
+        .btn-mobile-connect:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(16, 185, 129, 0.4);
+        }
+
+</style>
+</head>
+<body>
+
+    <!-- Sidebar -->
+    <div id="sidebar">
+        <div class="sidebar-header" id="sidebarHeader">
+            <div class="header-title">
+                <div class="icon">🚗</div>
+                <div>
+                    <h1>Транспортна задача</h1>
+                    <p>Оптимізація, дозаправка & симулятор</p>
+                </div>
+            </div>
+            <div style="display: flex; align-items: center; gap: 6px;">
+                <button class="btn-mobile-connect" id="btnOpenMobileConnect" title="Відкрити цей сайт на телефоні">📱 На телефон</button>
+                <button class="mobile-drawer-toggle" id="btnDrawerToggle">▲ Меню</button>
+            </div>
+        </div>
+
+        <div class="sidebar-content">
+            <!-- Smart Search -->
+            <div class="search-container">
+                <div class="search-input-wrapper">
+                    <span style="margin-right: 8px; color: #94a3b8;">🔍</span>
+                    <input type="text" id="addressInput" placeholder="Пошук (напр. 'нова пошта хутірське', 'АТБ')..." autocomplete="off">
+                    <span id="searchSpinner" style="display: none; font-size: 12px;">⏳</span>
+                </div>
+
+                <div class="search-chips">
+                    <div class="chip" onclick="applyQuickSearch('нова пошта')">📦 Нова Пошта</div>
+                    <div class="chip" onclick="applyQuickSearch('АТБ')">🛒 АТБ</div>
+                    <div class="chip" onclick="applyQuickSearch('Сільпо')">🛒 Сільпо</div>
+                    <div class="chip" onclick="applyQuickSearch('ОККО')">⛽ ОККО</div>
+                    <div class="chip" onclick="applyQuickSearch('WOG')">⛽ WOG</div>
+                    <div class="chip" onclick="applyQuickSearch('Аптека')">💊 Аптека</div>
+                </div>
+
+                <div class="search-results-panel" id="searchResultsPanel">
+                    <div class="search-header">
+                        <span id="searchResultsCount">Знайдено: 0</span>
+                        <div class="search-actions">
+                            <button class="btn-search-action" id="btnShowAllOnMap">🗺️ На карту</button>
+                            <button class="btn-search-action" id="btnAddAllToRoute" style="background: #dcfce7; color: #166534;">➕ Додати всі</button>
+                            <button class="btn-search-action" id="btnCloseSearch" style="background: #f1f5f9; color: #64748b;">✕</button>
+                        </div>
+                    </div>
+                    <div id="searchResultsList"></div>
+                </div>
+            </div>
+
+            <!-- Vehicle Selection Card -->
+            <div class="card">
+                <div class="card-title">
+                    <span>🚙 Вибір транспорту</span>
+                </div>
+                <div class="vehicle-grid">
+                    <div class="vehicle-btn active" onclick="selectVehicle('car')" id="vbtn-car">
+                        <span class="v-icon">🚗</span>
+                        <span class="v-label">Легковий</span>
+                    </div>
+                    <div class="vehicle-btn" onclick="selectVehicle('suv')" id="vbtn-suv">
+                        <span class="v-icon">🚙</span>
+                        <span class="v-label">Кросовер</span>
+                    </div>
+                    <div class="vehicle-btn" onclick="selectVehicle('van')" id="vbtn-van">
+                        <span class="v-icon">🚐</span>
+                        <span class="v-label">Бус / Мінівен</span>
+                    </div>
+                    <div class="vehicle-btn" onclick="selectVehicle('truck')" id="vbtn-truck">
+                        <span class="v-icon">🚛</span>
+                        <span class="v-label">Вантажівка</span>
+                    </div>
+                    <div class="vehicle-btn" onclick="selectVehicle('moto')" id="vbtn-moto">
+                        <span class="v-icon">🏍️</span>
+                        <span class="v-label">Мотоцикл</span>
+                    </div>
+                    <div class="vehicle-btn" onclick="selectVehicle('ev')" id="vbtn-ev">
+                        <span class="v-icon">⚡</span>
+                        <span class="v-label">Електромобіль</span>
+                    </div>
+                </div>
+
+                <!-- Fuel & Tank Parameters -->
+                <div class="form-row">
+                    <div class="form-group">
+                        <label id="lblConsumption">Витрата (л / 100 км)</label>
+                        <input type="number" id="fuelConsumption" value="7.5" step="0.1" min="0.5">
+                    </div>
+                    <div class="form-group">
+                        <label id="lblPrice">Ціна (грн / л)</label>
+                        <input type="number" id="fuelPrice" value="56.0" step="0.5" min="1">
+                    </div>
+                </div>
+
+                <div class="form-row-3">
+                    <div class="form-group">
+                        <label id="lblTank">Бак (л)</label>
+                        <input type="number" id="tankCapacity" value="55" step="1" min="5">
+                    </div>
+                    <div class="form-group">
+                        <label id="lblStartFuel">Старт (л)</label>
+                        <input type="number" id="startFuel" value="30" step="1" min="1">
+                    </div>
+                    <div class="form-group">
+                        <label id="lblReserve">Резерв (л)</label>
+                        <input type="number" id="reserveFuel" value="8" step="1" min="1">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Route Settings Card -->
+            <div class="card">
+                <div class="card-title">
+                    <span>⚙️ Налаштування маршруту</span>
+                </div>
+                <div class="form-group" style="margin-bottom: 8px;">
+                    <label>Тип маршруту</label>
+                    <select id="routeMode">
+                        <option value="round_trip">🔄 Кільцевий (повернення на старт)</option>
+                        <option value="fixed_end">🏁 Оптимізувати від Старту до Фінішу</option>
+                        <option value="any_end">✨ Довільний фініш (найкоротший)</option>
+                        <option value="custom">✋ Точний порядок (як виставили у списку)</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Критерій оптимізації</label>
+                    <select id="objective">
+                        <option value="distance">🛣️ Найменша відстань (км)</option>
+                        <option value="time">⏱️ Найшвидший за часом</option>
+                        <option value="fuel">⛽ Економія пального / коштів</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Points Reorderable Card -->
+            <div class="card">
+                <div class="card-title">
+                    <span>📍 Точки маршруту (<span id="pointsCount">0</span>)</span>
+                    <button id="btnClearAll" style="background:none; border:none; color:var(--danger); cursor:pointer; font-size:11px; font-weight:700;">Очистити</button>
+                </div>
+                <p style="font-size: 11px; color: var(--text-muted); margin-bottom: 8px;">
+                    💡 <i>Перетягуйте точки мишкою/пальцем у списку або використовуйте стрілочки, щоб виставити початок і кінець!</i>
+                </p>
+                <div id="emptyPointsHint" class="empty-points-hint">
+                    Клікніть на карті або скористайтеся пошуком вище, щоб додати точки для маршруту.
+                </div>
+                <div class="points-list" id="pointsList"></div>
+            </div>
+
+            <!-- Calculate Button -->
+            <button class="btn-calculate" id="btnCalculate" disabled>
+                <span>⚡ Розрахувати оптимальний маршрут</span>
+            </button>
+
+            <!-- Results Card -->
+            <div class="card" id="resultsCard">
+                <div class="card-title">
+                    <span>📊 Оптимальний результат</span>
+                </div>
+
+                <!-- Refuel Alert Box -->
+                <div id="refuelAlertBox" class="refuel-alert-box" style="display: none;">
+                    <div class="refuel-title">
+                        <span>⛽ Потрібна дозаправка!</span>
+                    </div>
+                    <div id="refuelDetails"></div>
+                </div>
+
+                <div id="savingsBanner" class="savings-banner" style="display: none;">
+                    <span>🎉 Заощаджено: <b id="savedKmText">0 км</b> та <b id="savedUahText">0 грн</b></span>
+                </div>
+
+                <div class="metrics-grid">
+                    <div class="metric-box">
+                        <div class="metric-label">Дистанція</div>
+                        <div class="metric-value" id="resDistance">0 км</div>
+                    </div>
+                    <div class="metric-box">
+                        <div class="metric-label">Час у дорозі</div>
+                        <div class="metric-value" id="resTime">0 хв</div>
+                    </div>
+                    <div class="metric-box">
+                        <div class="metric-label" id="resFuelLabel">Пальне</div>
+                        <div class="metric-value" id="resFuel">0 л</div>
+                    </div>
+                    <div class="metric-box">
+                        <div class="metric-label">Вартість</div>
+                        <div class="metric-value" id="resCost">0 грн</div>
+                    </div>
+                </div>
+
+                <button class="btn-gmaps" id="btnOpenGmaps">
+                    <span>🗺️ Відкрити в Google Maps</span>
+                </button>
+                
+                <button class="btn-qr" id="btnShowQr">
+                    <span>📱 QR-код для смартфона</span>
+                </button>
+
+                <!-- Colored Leg Itinerary -->
+                <div class="itinerary" id="itineraryList"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Map Canvas -->
+    <div id="map"></div>
+
+    <!-- Floating Clear Search Pins Button -->
+    <div class="clear-search-btn" id="btnClearSearchPins">
+        <span>✕ Приховати знайдені точки пошуку</span>
+    </div>
+
+    <!-- Floating Route Movement Simulator Bar -->
+    <div class="simulator-bar" id="simulatorBar">
+        <div class="sim-header">
+            <div class="sim-status">
+                <div class="sim-vehicle-icon" id="simVehicleIcon">🚗</div>
+                <div>
+                    <div class="sim-info-title" id="simCurrentLeg">Їдемо до: Зупинка 1</div>
+                    <div class="sim-info-sub" id="simProgressText">Подолано: 0.0 / 0.0 км (0%)</div>
+                </div>
+            </div>
+
+            <!-- Live Fuel Gauge -->
+            <div class="fuel-indicator">
+                <span>⛽ Бак: <span id="simFuelText">30.0 л</span></span>
+                <div class="fuel-bar-wrap">
+                    <div class="fuel-bar-fill" id="simFuelBarFill"></div>
+                </div>
+            </div>
+
+            <!-- Controls -->
+            <div class="sim-controls">
+                <div class="speed-btn-group">
+                    <button class="speed-btn" onclick="setSimSpeed(1)">1x</button>
+                    <button class="speed-btn active" onclick="setSimSpeed(3)">3x</button>
+                    <button class="speed-btn" onclick="setSimSpeed(8)">8x</button>
+                    <button class="speed-btn" onclick="setSimSpeed(20)">20x</button>
+                </div>
+                <button class="btn-sim" id="btnPlayPauseSim">
+                    <span id="simPlayIcon">▶️</span> <span id="simPlayText">Старт</span>
+                </button>
+                <button class="btn-sim-sec" id="btnResetSim" title="На початок">⏪</button>
+                <label style="font-size: 11px; display: flex; align-items: center; gap: 4px; color: #475569; cursor: pointer;">
+                    <input type="checkbox" id="chkFollowCar" checked> 🎥
+                </label>
+            </div>
+        </div>
+
+        <div class="sim-progress-track">
+            <div class="sim-progress-fill" id="simProgressFill"></div>
+        </div>
+    </div>
+
+    <!-- Mobile Drawer Floating Action Button -->
+    <button class="mobile-toggle-btn" id="btnMobileFloat">
+        <span>📋 Маршрут & Точки (<span id="mobilePointsCount">0</span>)</span>
+    </button>
+
+    <!-- QR Code Modal -->
+    <div class="modal-overlay" id="qrModal">
+        <div class="modal-box">
+            <h3>Маршрут у телефоні</h3>
+            <p>Наведіть камеру смартфона на цей QR-код, щоб відкрити побудований маршрут безпосередньо у Google Maps</p>
+            <img id="qrImage" src="" alt="Google Maps QR Code">
+            <div>
+                <button class="modal-close" id="btnCloseQr">Закрити</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Notification Toast -->
+    <div class="toast" id="toast">Повідомлення</div>
+
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+    <script>
+        // Leg Color Sequence (Rainbow / Multi-colored route)
+        const LEG_COLORS = [
+            '#2563eb', // Leg 1: Синій
+            '#eab308', // Leg 2: Жовтий / Золотий
+            '#10b981', // Leg 3: Зелений
+            '#8b5cf6', // Leg 4: Фіолетовий
+            '#ef4444', // Leg 5: Червоний
+            '#06b6d4', // Leg 6: Бірюзовий / Ціан
+            '#f97316', // Leg 7: Помаранчевий
+            '#ec4899', // Leg 8: Рожевий
+            '#14b8a6', // Leg 9: Тіал
+            '#6366f1'  // Leg 10: Індиго
+        ];
+
+        const VEHICLE_PRESETS = {
+            car:   { icon: '🚗', name: 'Легковий', consumption: 7.5, tank: 55, start: 35, reserve: 8, price: 56.0, unit: 'л' },
+            suv:   { icon: '🚙', name: 'Кросовер', consumption: 9.5, tank: 65, start: 40, reserve: 10, price: 56.0, unit: 'л' },
+            van:   { icon: '🚐', name: 'Бус', consumption: 11.0, tank: 80, start: 50, reserve: 12, price: 54.0, unit: 'л' },
+            truck: { icon: '🚛', name: 'Вантажівка', consumption: 28.0, tank: 400, start: 250, reserve: 50, price: 54.0, unit: 'л' },
+            moto:  { icon: '🏍️', name: 'Мотоцикл', consumption: 4.2, tank: 16, start: 12, reserve: 3, price: 56.0, unit: 'л' },
+            ev:    { icon: '⚡', name: 'Електромобіль', consumption: 17.5, tank: 65, start: 50, reserve: 10, price: 9.5, unit: 'кВт⋅год' }
+        };
+
+        let currentVehicleType = 'car';
+        let points = [];
+        let markers = [];
+        let searchResultMarkers = [];
+        let refuelMarkers = [];
+        let routePolylines = []; // Multiple colored leg polylines
+        let currentSearchResults = [];
+        let lastResult = null;
+        let searchTimeout = null;
+
+        // Map Setup
+        const map = L.map('map', { zoomControl: false }).setView([50.4501, 30.5234], 7);
+        L.control.zoom({ position: 'topright' }).addTo(map);
+
+        const googleRoadmap = L.tileLayer('https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}', {
+            maxZoom: 20,
+            subdomains: ['mt0', 'mt1', 'mt2', 'mt3'],
+            attribution: '© Google Maps'
+        });
+
+        const googleSatellite = L.tileLayer('https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}', {
+            maxZoom: 20,
+            subdomains: ['mt0', 'mt1', 'mt2', 'mt3'],
+            attribution: '© Google Maps'
+        });
+
+        const googleHybrid = L.tileLayer('https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}', {
+            maxZoom: 20,
+            subdomains: ['mt0', 'mt1', 'mt2', 'mt3'],
+            attribution: '© Google Maps'
+        });
+
+        const osmLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 19,
+            attribution: '© OpenStreetMap'
+        });
+
+        googleRoadmap.addTo(map);
+
+        L.control.layers({
+            "Google Карта (Дороги)": googleRoadmap,
+            "Google Супутник": googleSatellite,
+            "Google Гібрид": googleHybrid,
+            "OpenStreetMap": osmLayer
+        }, null, { position: 'topright' }).addTo(map);
+
+        if ("geolocation" in navigator) {
+            navigator.geolocation.getCurrentPosition((pos) => {
+                map.setView([pos.coords.latitude, pos.coords.longitude], 11);
+            }, () => {});
+        }
+
+        // Mobile Drawer Toggle
+        const sidebar = document.getElementById('sidebar');
+        const btnDrawerToggle = document.getElementById('btnDrawerToggle');
+        const btnMobileFloat = document.getElementById('btnMobileFloat');
+        const sidebarHeader = document.getElementById('sidebarHeader');
+
+        function toggleMobileDrawer() {
+            sidebar.classList.toggle('expanded');
+            if (sidebar.classList.contains('expanded')) {
+                btnDrawerToggle.innerText = '▼ Карта';
+            } else {
+                btnDrawerToggle.innerText = '▲ Меню';
+            }
+        }
+
+        btnDrawerToggle.addEventListener('click', (e) => {
+            e.stopPropagation();
+            toggleMobileDrawer();
+        });
+        sidebarHeader.addEventListener('click', () => {
+            if (window.innerWidth <= 768) toggleMobileDrawer();
+        });
+        btnMobileFloat.addEventListener('click', toggleMobileDrawer);
+
+        // Vehicle Selector Function
+        function selectVehicle(type) {
+            currentVehicleType = type;
+            document.querySelectorAll('.vehicle-btn').forEach(b => b.classList.remove('active'));
+            const activeBtn = document.getElementById(`vbtn-${type}`);
+            if (activeBtn) activeBtn.classList.add('active');
+
+            const p = VEHICLE_PRESETS[type];
+            document.getElementById('fuelConsumption').value = p.consumption;
+            document.getElementById('fuelPrice').value = p.price;
+            document.getElementById('tankCapacity').value = p.tank;
+            document.getElementById('startFuel').value = p.start;
+            document.getElementById('reserveFuel').value = p.reserve;
+
+            document.getElementById('lblConsumption').innerText = `Витрата (${p.unit} / 100 км)`;
+            document.getElementById('lblPrice').innerText = `Ціна (грн / ${p.unit})`;
+            document.getElementById('lblTank').innerText = `Бак (${p.unit})`;
+            document.getElementById('lblStartFuel').innerText = `Старт (${p.unit})`;
+            document.getElementById('lblReserve').innerText = `Резерв (${p.unit})`;
+            document.getElementById('resFuelLabel').innerText = p.unit === 'кВт⋅год' ? 'Енергія' : 'Пальне';
+
+            document.getElementById('simVehicleIcon').innerText = p.icon;
+            showToast(`Обрано: ${p.name} ${p.icon}`);
+
+            if (points.length >= 2 && lastResult) calculateRoute();
+        }
+
+        // Map Click
+        map.on('click', function(e) {
+            addPoint(e.latlng.lat, e.latlng.lng);
+        });
+
+        function createCustomPin(number, isStart, isFinish) {
+            let className = "custom-pin";
+            if (isStart) className += " start-pin";
+            else if (isFinish) className += " finish-pin";
+
+            return L.divIcon({
+                className: '',
+                html: `<div class="${className}">${number}</div>`,
+                iconSize: [32, 32],
+                iconAnchor: [16, 16],
+                popupAnchor: [0, -18]
+            });
+        }
+
+        function createSearchPin(icon) {
+            return L.divIcon({
+                className: '',
+                html: `<div class="search-pin">${icon || '🔍'}</div>`,
+                iconSize: [28, 28],
+                iconAnchor: [14, 14],
+                popupAnchor: [0, -16]
+            });
+        }
+
+        function createRefuelPin() {
+            return L.divIcon({
+                className: '',
+                html: `<div class="refuel-pin-wrapper"><div class="refuel-pin">⛽</div></div>`,
+                iconSize: [36, 36],
+                iconAnchor: [18, 18],
+                popupAnchor: [0, -20]
+            });
+        }
+
+        function addPoint(lat, lng, name = null) {
+            const index = points.length;
+            const ptName = name || `Точка ${index + 1}`;
+            const pointObj = { lat, lng, name: ptName };
+            points.push(pointObj);
+
+            const isStart = (index === 0);
+            const marker = L.marker([lat, lng], {
+                draggable: true,
+                icon: createCustomPin(index + 1, isStart, false)
+            }).addTo(map);
+
+            marker.on('dragend', function(e) {
+                const newPos = e.target.getLatLng();
+                pointObj.lat = newPos.lat;
+                pointObj.lng = newPos.lng;
+                renderPointsList();
+                if (points.length >= 2 && lastResult) calculateRoute();
+            });
+
+            marker.bindPopup(`
+                <div style="font-size: 13px; font-family: inherit;">
+                    <b>${ptName}</b><br>
+                    <small style="color: #64748b;">${lat.toFixed(5)}, ${lng.toFixed(5)}</small><br>
+                    <button onclick="removePointByIndex(${index})" style="margin-top: 8px; color: #ef4444; border: 1px solid #fca5a5; background: #fee2e2; padding: 4px 8px; border-radius: 6px; cursor: pointer;">Видалити</button>
+                </div>
+            `);
+
+            markers.push(marker);
+            renderPointsList();
+            showToast(`Додано: ${ptName}`);
+        }
+
+        function removePointByIndex(idx) {
+            if (markers[idx]) map.removeLayer(markers[idx]);
+            points.splice(idx, 1);
+            markers.splice(idx, 1);
+            refreshMarkers();
+            renderPointsList();
+
+            clearRoutePolylines();
+            clearRefuelPins();
+            stopSimulator();
+            document.getElementById('simulatorBar').style.display = 'none';
+            document.getElementById('resultsCard').style.display = 'none';
+            lastResult = null;
+        }
+
+        function refreshMarkers(order = null) {
+            markers.forEach((m, idx) => {
+                let displayNumber = idx + 1;
+                let isStart = (idx === 0);
+                let isFinish = (idx === markers.length - 1 && markers.length > 1);
+
+                if (order && order.length > 0) {
+                    const stopPos = order.indexOf(idx);
+                    if (stopPos !== -1) {
+                        displayNumber = stopPos + 1;
+                        isStart = (stopPos === 0);
+                    }
+                }
+                m.setIcon(createCustomPin(displayNumber, isStart, isFinish));
+            });
+        }
+
+        // Reordering Actions
+        function movePointUp(idx) {
+            if (idx <= 0) return;
+            swapPoints(idx, idx - 1);
+        }
+
+        function movePointDown(idx) {
+            if (idx >= points.length - 1) return;
+            swapPoints(idx, idx + 1);
+        }
+
+        function makePointStart(idx) {
+            if (idx === 0) return;
+            const pt = points.splice(idx, 1)[0];
+            const mk = markers.splice(idx, 1)[0];
+            points.unshift(pt);
+            markers.unshift(mk);
+            refreshMarkers();
+            renderPointsList();
+            showToast(`'${pt.name}' встановлено початком маршруту 🟢`);
+            if (points.length >= 2 && lastResult) calculateRoute();
+        }
+
+        function makePointFinish(idx) {
+            if (idx === points.length - 1) return;
+            const pt = points.splice(idx, 1)[0];
+            const mk = markers.splice(idx, 1)[0];
+            points.push(pt);
+            markers.push(mk);
+            refreshMarkers();
+            renderPointsList();
+            showToast(`'${pt.name}' встановлено фінішем маршруту 🏁`);
+            if (points.length >= 2 && lastResult) calculateRoute();
+        }
+
+        function swapPoints(i, j) {
+            const tempPt = points[i];
+            points[i] = points[j];
+            points[j] = tempPt;
+
+            const tempMk = markers[i];
+            markers[i] = markers[j];
+            markers[j] = tempMk;
+
+            refreshMarkers();
+            renderPointsList();
+            if (points.length >= 2 && lastResult) calculateRoute();
+        }
+
+        // Render Points List with Drag & Drop
+        let dragSrcIndex = null;
+
+        function renderPointsList() {
+            const listEl = document.getElementById('pointsList');
+            const hintEl = document.getElementById('emptyPointsHint');
+            const countEl = document.getElementById('pointsCount');
+            const mobileCountEl = document.getElementById('mobilePointsCount');
+            const calcBtn = document.getElementById('btnCalculate');
+
+            countEl.innerText = points.length;
+            mobileCountEl.innerText = points.length;
+            calcBtn.disabled = points.length < 2;
+
+            if (points.length === 0) {
+                hintEl.style.display = 'block';
+                listEl.innerHTML = '';
+                return;
+            }
+
+            hintEl.style.display = 'none';
+            listEl.innerHTML = '';
+
+            points.forEach((pt, idx) => {
+                const item = document.createElement('div');
+                item.className = 'point-item';
+                item.setAttribute('draggable', 'true');
+                item.dataset.index = idx;
+
+                const isStart = (idx === 0);
+                const isFinish = (idx === points.length - 1 && points.length > 1);
+
+                item.innerHTML = `
+                    <div class="point-left">
+                        <span class="drag-handle" title="Перетягніть для зміни порядку">⠿</span>
+                        <div class="point-badge ${isStart ? 'start' : (isFinish ? 'finish' : '')}">${idx + 1}</div>
+                        <div class="point-name" title="${pt.name}">${pt.name}</div>
+                    </div>
+                    <div class="point-actions">
+                        ${idx > 0 ? `<button class="btn-reorder" onclick="movePointUp(${idx})" title="Вгору">▲</button>` : ''}
+                        ${idx < points.length - 1 ? `<button class="btn-reorder" onclick="movePointDown(${idx})" title="Вниз">▼</button>` : ''}
+                        ${!isStart ? `<button class="btn-set-role" onclick="makePointStart(${idx})" title="Зробити стартом">🟢</button>` : ''}
+                        ${!isFinish && points.length > 1 ? `<button class="btn-set-role" onclick="makePointFinish(${idx})" title="Зробити фінішем">🏁</button>` : ''}
+                        <button class="btn-delete-point" onclick="removePointByIndex(${idx})" title="Видалити">✕</button>
+                    </div>
+                `;
+
+                // HTML5 Drag and Drop events
+                item.addEventListener('dragstart', (e) => {
+                    dragSrcIndex = idx;
+                    item.classList.add('dragging');
+                    e.dataTransfer.effectAllowed = 'move';
+                });
+
+                item.addEventListener('dragenter', (e) => {
+                    e.preventDefault();
+                    if (dragSrcIndex !== idx) item.classList.add('drag-over');
+                });
+
+                item.addEventListener('dragover', (e) => {
+                    e.preventDefault();
+                    e.dataTransfer.dropEffect = 'move';
+                });
+
+                item.addEventListener('dragleave', () => {
+                    item.classList.remove('drag-over');
+                });
+
+                item.addEventListener('drop', (e) => {
+                    e.stopPropagation();
+                    item.classList.remove('drag-over');
+                    if (dragSrcIndex !== null && dragSrcIndex !== idx) {
+                        const draggedPt = points.splice(dragSrcIndex, 1)[0];
+                        const draggedMk = markers.splice(dragSrcIndex, 1)[0];
+                        points.splice(idx, 0, draggedPt);
+                        markers.splice(idx, 0, draggedMk);
+
+                        refreshMarkers();
+                        renderPointsList();
+                        showToast(`Порядок оновлено!`);
+                        if (points.length >= 2 && lastResult) calculateRoute();
+                    }
+                });
+
+                item.addEventListener('dragend', () => {
+                    item.classList.remove('dragging');
+                    document.querySelectorAll('.point-item').forEach(el => el.classList.remove('drag-over'));
+                });
+
+                listEl.appendChild(item);
+            });
+        }
+
+        document.getElementById('btnClearAll').addEventListener('click', () => {
+            markers.forEach(m => map.removeLayer(m));
+            markers = [];
+            points = [];
+            clearRoutePolylines();
+            clearRefuelPins();
+            stopSimulator();
+            document.getElementById('simulatorBar').style.display = 'none';
+            document.getElementById('resultsCard').style.display = 'none';
+            lastResult = null;
+            renderPointsList();
+            showToast('Всі точки очищено');
+        });
+
+        // Smart Search Implementation
+        const addressInput = document.getElementById('addressInput');
+        const searchPanel = document.getElementById('searchResultsPanel');
+        const searchList = document.getElementById('searchResultsList');
+        const searchCount = document.getElementById('searchResultsCount');
+        const searchSpinner = document.getElementById('searchSpinner');
+        const btnClearSearchPins = document.getElementById('btnClearSearchPins');
+
+        function applyQuickSearch(tag) {
+            addressInput.value = tag;
+            triggerSearch(tag);
+        }
+
+        addressInput.addEventListener('input', (e) => {
+            const val = e.target.value.trim();
+            clearTimeout(searchTimeout);
+            if (val.length < 2) {
+                searchPanel.style.display = 'none';
+                return;
+            }
+            searchTimeout = setTimeout(() => triggerSearch(val), 350);
+        });
+
+        async function triggerSearch(query) {
+            if (!query) return;
+            searchSpinner.style.display = 'inline';
+
+            const bounds = map.getBounds();
+            const center = map.getCenter();
+            const viewbox = `${bounds.getWest().toFixed(5)},${bounds.getNorth().toFixed(5)},${bounds.getEast().toFixed(5)},${bounds.getSouth().toFixed(5)}`;
+
+            try {
+                const url = `/api/search?q=${encodeURIComponent(query)}&lat=${center.lat.toFixed(5)}&lng=${center.lng.toFixed(5)}&viewbox=${viewbox}`;
+                const res = await fetch(url);
+                const items = await res.json();
+                currentSearchResults = items;
+                renderSearchResults(items);
+            } catch (err) {
+                console.error(err);
+            } finally {
+                searchSpinner.style.display = 'none';
+            }
+        }
+
+        function renderSearchResults(items) {
+            if (!items || items.length === 0) {
+                searchList.innerHTML = '<div style="padding: 14px; text-align: center; color: #64748b; font-size: 13px;">Нічого не знайдено за цим запитом</div>';
+                searchCount.innerText = 'Знайдено: 0';
+                searchPanel.style.display = 'block';
+                return;
+            }
+
+            searchCount.innerText = `Знайдено: ${items.length}`;
+            searchList.innerHTML = '';
+
+            items.forEach((item, idx) => {
+                const div = document.createElement('div');
+                div.className = 'search-item';
+                div.innerHTML = `
+                    <div class="search-item-info">
+                        <span class="search-item-icon">${item.icon || '📍'}</span>
+                        <div>
+                            <div class="search-item-title">${item.short_name || item.name}</div>
+                            <div class="search-item-addr">${item.address || ''}</div>
+                        </div>
+                    </div>
+                    <button class="btn-add-search-item" onclick="addSingleSearchResult(${idx})">+ Додати</button>
+                `;
+                div.addEventListener('click', (e) => {
+                    if (e.target.classList.contains('btn-add-search-item')) return;
+                    map.setView([item.lat, item.lng], 15);
+                    addPoint(item.lat, item.lng, item.short_name || item.name);
+                    searchPanel.style.display = 'none';
+                    addressInput.value = '';
+                });
+                searchList.appendChild(div);
+            });
+
+            searchPanel.style.display = 'block';
+            showSearchResultsOnMap(items);
+        }
+
+        function showSearchResultsOnMap(items) {
+            clearSearchPins();
+            if (!items || items.length === 0) return;
+
+            const latLngs = [];
+            items.forEach((item, idx) => {
+                const pin = L.marker([item.lat, item.lng], {
+                    icon: createSearchPin(item.icon)
+                }).addTo(map);
+
+                pin.bindPopup(`
+                    <div style="font-size: 13px; font-family: inherit;">
+                        <b>${item.short_name || item.name}</b><br>
+                        <small style="color: #64748b;">${item.address || ''}</small><br>
+                        <button onclick="addSingleSearchResult(${idx})" style="margin-top: 8px; background: #2563eb; color: white; border: none; padding: 5px 10px; border-radius: 6px; cursor: pointer; font-weight: 600;">+ Додати в маршрут</button>
+                    </div>
+                `);
+
+                searchResultMarkers.push(pin);
+                latLngs.push([item.lat, item.lng]);
+            });
+
+            if (latLngs.length > 0) {
+                map.fitBounds(L.latLngBounds(latLngs), { padding: [50, 50], maxZoom: 15 });
+                btnClearSearchPins.style.display = 'flex';
+            }
+        }
+
+        function clearSearchPins() {
+            searchResultMarkers.forEach(m => map.removeLayer(m));
+            searchResultMarkers = [];
+            btnClearSearchPins.style.display = 'none';
+        }
+
+        function clearRefuelPins() {
+            refuelMarkers.forEach(m => map.removeLayer(m));
+            refuelMarkers = [];
+        }
+
+        function clearRoutePolylines() {
+            routePolylines.forEach(p => map.removeLayer(p));
+            routePolylines = [];
+        }
+
+        btnClearSearchPins.addEventListener('click', clearSearchPins);
+
+        window.addSingleSearchResult = function(idx) {
+            const item = currentSearchResults[idx];
+            if (!item) return;
+            addPoint(item.lat, item.lng, item.short_name || item.name);
+            showToast(`Додано: ${item.short_name || item.name}`);
+        };
+
+        document.getElementById('btnShowAllOnMap').addEventListener('click', () => {
+            showSearchResultsOnMap(currentSearchResults);
+            searchPanel.style.display = 'none';
+        });
+
+        document.getElementById('btnAddAllToRoute').addEventListener('click', () => {
+            if (!currentSearchResults || currentSearchResults.length === 0) return;
+            currentSearchResults.forEach(item => {
+                addPoint(item.lat, item.lng, item.short_name || item.name);
+            });
+            clearSearchPins();
+            searchPanel.style.display = 'none';
+            addressInput.value = '';
+            showToast(`Додано всі ${currentSearchResults.length} точок до маршруту!`);
+        });
+
+        document.getElementById('btnCloseSearch').addEventListener('click', () => {
+            searchPanel.style.display = 'none';
+        });
+
+        document.addEventListener('click', (e) => {
+            if (!e.target.closest('.search-container')) {
+                searchPanel.style.display = 'none';
+            }
+        });
+
+        // Find gas stations near refueling coordinate
+        window.findGasStationsNear = async function(lat, lng) {
+            showToast('🔍 Шукаємо АЗС поблизу...');
+            try {
+                const res = await fetch(`/api/gas_stations?lat=${lat}&lng=${lng}`);
+                const stations = await res.json();
+                if (stations.length > 0) {
+                    showSearchResultsOnMap(stations);
+                    showToast(`Знайдено ${stations.length} АЗС поблизу! ⛽`);
+                } else {
+                    showToast('Поруч не знайдено зареєстрованих АЗС');
+                }
+            } catch (e) {
+                console.error(e);
+            }
+        };
+
+        // Route Optimization Call
+        const btnCalc = document.getElementById('btnCalculate');
+        btnCalc.addEventListener('click', calculateRoute);
+
+        async function calculateRoute() {
+            if (points.length < 2) return;
+
+            btnCalc.disabled = true;
+            btnCalc.innerHTML = '<span>⏳ Оптимізація маршруту...</span>';
+
+            const payload = {
+                points: points,
+                vehicle_type: currentVehicleType,
+                fuel_consumption: parseFloat(document.getElementById('fuelConsumption').value) || 7.5,
+                fuel_price: parseFloat(document.getElementById('fuelPrice').value) || 56.0,
+                tank_capacity: parseFloat(document.getElementById('tankCapacity').value) || 50.0,
+                start_fuel: parseFloat(document.getElementById('startFuel').value) || 25.0,
+                reserve_fuel: parseFloat(document.getElementById('reserveFuel').value) || 8.0,
+                mode: document.getElementById('routeMode').value,
+                objective: document.getElementById('objective').value
+            };
+
+            try {
+                const resp = await fetch('/api/optimize', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                const data = await resp.json();
+                if (!resp.ok) {
+                    alert(data.error || 'Помилка розрахунку');
+                    return;
+                }
+
+                lastResult = data;
+                displayResults(data);
+                showToast('✨ Маршрут успішно побудовано!');
+
+                // If mobile, collapse drawer to show the map and route
+                if (window.innerWidth <= 768) {
+                    sidebar.classList.remove('expanded');
+                    btnDrawerToggle.innerText = '▲ Меню';
+                }
+            } catch (err) {
+                console.error(err);
+                alert('Не вдалося з\'єднатися з сервером');
+            } finally {
+                btnCalc.disabled = false;
+                btnCalc.innerHTML = '<span>⚡ Розрахувати оптимальний маршрут</span>';
+            }
+        }
+
+        function displayResults(data) {
+            clearRefuelPins();
+            clearRoutePolylines();
+
+            // 1. Draw Multi-Colored Legs
+            drawMultiColoredRoute(data);
+
+            // Update Markers ordering
+            refreshMarkers(data.optimal_order);
+
+            // Populate Metrics
+            const pUnit = VEHICLE_PRESETS[currentVehicleType].unit;
+            document.getElementById('resDistance').innerText = `${data.metrics.total_km} км`;
+            document.getElementById('resTime').innerText = data.metrics.time_formatted;
+            document.getElementById('resFuel').innerText = `${data.metrics.fuel_liters} ${pUnit}`;
+            document.getElementById('resCost').innerText = `${data.metrics.total_cost_uah} ₴`;
+
+            // Refueling Box & Refueling Markers on Map
+            const refuelBox = document.getElementById('refuelAlertBox');
+            const refuelDetails = document.getElementById('refuelDetails');
+            if (data.refueling && data.refueling.needs_refuel) {
+                refuelBox.style.display = 'block';
+                let html = `<span>Необхідно дозаправок: <b>${data.refueling.refuel_count}</b>. Залити разом: <b>${data.refueling.total_refuel_liters} ${pUnit}</b> (~<b>${data.refueling.total_refuel_cost_uah} грн</b>)</span>`;
+                
+                data.refueling.events.forEach(ev => {
+                    html += `<div class="refuel-item">${ev.description}: <b>+${ev.refuel_liters} ${pUnit}</b> (${ev.refuel_cost_uah} ₴)</div>`;
+
+                    // Add Prominent Refuel Pin to Map
+                    const rPin = L.marker([ev.lat, ev.lng], {
+                        icon: createRefuelPin(),
+                        zIndexOffset: 2500
+                    }).addTo(map);
+
+                    rPin.bindTooltip(`⛽ Дозаправка: +${ev.refuel_liters} ${pUnit}`, { permanent: false, direction: 'top' });
+
+                    rPin.bindPopup(`
+                        <div style="font-size: 13px; font-family: inherit; min-width: 180px;">
+                            <b style="color: #ea580c; font-size: 14px;">⛽ Рекомендована дозаправка</b><br>
+                            <span style="font-weight: 600;">${ev.description}</span><br>
+                            <div style="margin: 6px 0; background: #fff7ed; padding: 6px; border-radius: 6px; border: 1px solid #ffedd5;">
+                                <b>Залити: +${ev.refuel_liters} ${pUnit}</b> (~${ev.refuel_cost_uah} ₴)<br>
+                                <small style="color: #64748b;">Залишок перед заправкою: ~${ev.fuel_before} ${pUnit}</small>
+                            </div>
+                            <button onclick="findGasStationsNear(${ev.lat}, ${ev.lng})" style="width: 100%; background: #ea580c; color: white; border: none; padding: 6px 10px; border-radius: 6px; cursor: pointer; font-weight: 700; font-size: 11.5px;">🔍 Знайти АЗС поруч</button>
+                        </div>
+                    `);
+                    refuelMarkers.push(rPin);
+                });
+                refuelDetails.innerHTML = html;
+            } else {
+                refuelBox.style.display = 'none';
+            }
+
+            // Savings
+            const savingsBanner = document.getElementById('savingsBanner');
+            if (data.metrics.saved_km > 0.5) {
+                document.getElementById('savedKmText').innerText = `${data.metrics.saved_km} км`;
+                document.getElementById('savedUahText').innerText = `${data.metrics.saved_uah} грн`;
+                savingsBanner.style.display = 'flex';
+            } else {
+                savingsBanner.style.display = 'none';
+            }
+
+            // Google Maps button
+            document.getElementById('btnOpenGmaps').onclick = () => window.open(data.google_maps_url, '_blank');
+
+            // QR Code
+            document.getElementById('qrImage').src = data.qr_code;
+            document.getElementById('btnShowQr').onclick = () => {
+                document.getElementById('qrModal').style.display = 'flex';
+            };
+
+            // Itinerary list with Colored Badges
+            const itinEl = document.getElementById('itineraryList');
+            itinEl.innerHTML = '<div style="font-size:12px; font-weight:700; color:var(--text-muted); margin-bottom:10px;">ПОСЛІДОВНІСТЬ ОБ\'ЇЗДУ:</div>';
+            
+            data.stops.forEach((stop, i) => {
+                const stepDiv = document.createElement('div');
+                stepDiv.className = 'itinerary-step';
+                let legText = '';
+                const legColor = LEG_COLORS[i % LEG_COLORS.length];
+
+                if (stop.leg_to_next) {
+                    legText = `➔ До наступної: ${stop.leg_to_next.distance_km} км (${stop.leg_to_next.duration_min} хв)`;
+                }
+
+                stepDiv.innerHTML = `
+                    <div class="itinerary-title">
+                        ${stop.step}. ${stop.name} <span style="font-weight: normal; color: #64748b;">(${stop.role})</span>
+                    </div>
+                    ${legText ? `
+                        <div class="itinerary-leg">
+                            <span class="leg-color-badge" style="background-color: ${legColor};"></span>
+                            <span>${legText}</span>
+                        </div>
+                    ` : ''}
+                `;
+                itinEl.appendChild(stepDiv);
+            });
+
+            document.getElementById('resultsCard').style.display = 'block';
+
+            // Prepare Simulator
+            initSimulator(data);
+        }
+
+        // Draw Multi-colored Route Segments (1->2 blue, 2->3 yellow, 3->4 green...)
+        function drawMultiColoredRoute(data) {
+            const allBounds = [];
+            const legs = data.stops;
+
+            legs.forEach((stop, i) => {
+                const legInfo = stop.leg_to_next;
+                if (!legInfo || !legInfo.coordinates || legInfo.coordinates.length === 0) return;
+
+                const color = LEG_COLORS[i % LEG_COLORS.length];
+                const latLngs = legInfo.coordinates.map(c => [c[1], c[0]]);
+
+                const polyline = L.polyline(latLngs, {
+                    color: color,
+                    weight: 6,
+                    opacity: 0.88,
+                    lineJoin: 'round'
+                }).addTo(map);
+
+                polyline.bindTooltip(`Ділянка ${i + 1}: ${stop.name} ➔ ${legs[i+1] ? legs[i+1].name : ''} (${legInfo.distance_km} км)`, {
+                    sticky: true
+                });
+
+                routePolylines.push(polyline);
+                allBounds.push(polyline.getBounds());
+            });
+
+            // If legs coordinates missing (fallback)
+            if (routePolylines.length === 0 && data.route_geometry) {
+                const coords = data.route_geometry.coordinates.map(c => [c[1], c[0]]);
+                const polyline = L.polyline(coords, {
+                    color: '#2563eb',
+                    weight: 6,
+                    opacity: 0.85,
+                    lineJoin: 'round'
+                }).addTo(map);
+                routePolylines.push(polyline);
+                map.fitBounds(polyline.getBounds(), { padding: [50, 50] });
+            } else if (allBounds.length > 0) {
+                let combinedBounds = allBounds[0];
+                for (let k = 1; k < allBounds.length; k++) {
+                    combinedBounds.extend(allBounds[k]);
+                }
+                map.fitBounds(combinedBounds, { padding: [50, 50] });
+            }
+        }
+
+        // ==========================================
+        // ROUTE SIMULATOR & VEHICLE MOVEMENT ENGINE
+        // ==========================================
+        let simInterval = null;
+        let simCoords = [];
+        let simIndex = 0;
+        let simSpeed = 3;
+        let simVehicleMarker = null;
+        let simTotalKm = 0;
+        let simLegs = [];
+        let simFuelLevel = 0;
+        let simFuelConsumption = 7.5;
+        let simTankCapacity = 50;
+        let simRefuelEvents = [];
+
+        function initSimulator(data) {
+            stopSimulator();
+            simCoords = data.route_geometry.coordinates.map(c => ({ lat: c[1], lng: c[0] }));
+            simTotalKm = data.metrics.total_km;
+            simLegs = data.stops;
+            simRefuelEvents = (data.refueling && data.refueling.events) ? data.refueling.events : [];
+            simFuelConsumption = parseFloat(document.getElementById('fuelConsumption').value) || 7.5;
+            simTankCapacity = parseFloat(document.getElementById('tankCapacity').value) || 50;
+            simFuelLevel = parseFloat(document.getElementById('startFuel').value) || 25;
+
+            simIndex = 0;
+
+            const simBar = document.getElementById('simulatorBar');
+            simBar.style.display = 'flex';
+            document.getElementById('simPlayIcon').innerText = '▶️';
+            document.getElementById('simPlayText').innerText = 'Старт';
+            document.getElementById('simProgressFill').style.width = '0%';
+            updateSimHUD(0, 0);
+
+            if (simCoords.length > 0) {
+                const p = VEHICLE_PRESETS[currentVehicleType];
+                if (simVehicleMarker) map.removeLayer(simVehicleMarker);
+
+                const iconHtml = `<div class="moving-vehicle-icon" id="carIconElem">${p.icon}</div>`;
+                const vIcon = L.divIcon({
+                    className: '',
+                    html: iconHtml,
+                    iconSize: [32, 32],
+                    iconAnchor: [16, 16]
+                });
+
+                simVehicleMarker = L.marker([simCoords[0].lat, simCoords[0].lng], {
+                    icon: vIcon,
+                    zIndexOffset: 3000
+                }).addTo(map);
+            }
+        }
+
+        function toggleSimulator() {
+            if (simInterval) pauseSimulator();
+            else startSimulator();
+        }
+
+        function startSimulator() {
+            if (!simCoords || simCoords.length === 0) return;
+            if (simIndex >= simCoords.length - 1) {
+                simIndex = 0;
+                simFuelLevel = parseFloat(document.getElementById('startFuel').value) || 25;
+            }
+
+            document.getElementById('simPlayIcon').innerText = '⏸️';
+            document.getElementById('simPlayText').innerText = 'Пауза';
+            simInterval = setInterval(simStep, Math.max(10, Math.floor(50 / simSpeed)));
+        }
+
+        function pauseSimulator() {
+            clearInterval(simInterval);
+            simInterval = null;
+            document.getElementById('simPlayIcon').innerText = '▶️';
+            document.getElementById('simPlayText').innerText = 'Продовжити';
+        }
+
+        function stopSimulator() {
+            if (simInterval) {
+                clearInterval(simInterval);
+                simInterval = null;
+            }
+            if (simVehicleMarker) {
+                map.removeLayer(simVehicleMarker);
+                simVehicleMarker = null;
+            }
+        }
+
+        function resetSimulator() {
+            pauseSimulator();
+            simIndex = 0;
+            simFuelLevel = parseFloat(document.getElementById('startFuel').value) || 25;
+            if (simCoords.length > 0 && simVehicleMarker) {
+                simVehicleMarker.setLatLng([simCoords[0].lat, simCoords[0].lng]);
+            }
+            updateSimHUD(0, 0);
+            document.getElementById('simPlayText').innerText = 'Старт';
+            document.getElementById('simProgressFill').style.width = '0%';
+        }
+
+        function setSimSpeed(speed) {
+            simSpeed = speed;
+            document.querySelectorAll('.speed-btn').forEach(b => b.classList.remove('active'));
+            event.target.classList.add('active');
+            if (simInterval) {
+                clearInterval(simInterval);
+                simInterval = setInterval(simStep, Math.max(10, Math.floor(50 / simSpeed)));
+            }
+        }
+
+        function simStep() {
+            if (simIndex >= simCoords.length - 1) {
+                pauseSimulator();
+                showToast('🏁 Маршрут успішно пройдено!');
+                document.getElementById('simPlayText').innerText = 'Знову';
+                return;
+            }
+
+            const p1 = simCoords[simIndex];
+            simIndex++;
+            const p2 = simCoords[simIndex];
+
+            simVehicleMarker.setLatLng([p2.lat, p2.lng]);
+
+            // Heading angle rotation
+            const dy = p2.lat - p1.lat;
+            const dx = (p2.lng - p1.lng) * Math.cos(p1.lat * Math.PI / 180.0);
+            let angle = Math.atan2(dx, dy) * 180.0 / Math.PI;
+
+            const carIcon = document.getElementById('carIconElem');
+            if (carIcon) carIcon.style.transform = `rotate(${angle}deg)`;
+
+            // Follow camera
+            if (document.getElementById('chkFollowCar').checked && simIndex % 6 === 0) {
+                map.panTo([p2.lat, p2.lng], { animate: true, duration: 0.1 });
+            }
+
+            const progressRatio = simIndex / (simCoords.length - 1);
+            const currentKm = simTotalKm * progressRatio;
+
+            // Fuel consumption
+            const kmStep = simTotalKm / simCoords.length;
+            simFuelLevel = Math.max(0.5, simFuelLevel - (kmStep * (simFuelConsumption / 100.0)));
+
+            // Refuel Event Detection
+            simRefuelEvents.forEach(ev => {
+                if (Math.abs(currentKm - ev.at_km) < (kmStep * 2) && simFuelLevel < simTankCapacity * 0.8) {
+                    simFuelLevel = simTankCapacity;
+                    showToast(`⛽ Заїзд на АЗС! Заправлено +${ev.refuel_liters} л!`);
+                }
+            });
+
+            updateSimHUD(currentKm, progressRatio);
+        }
+
+        function updateSimHUD(currentKm, ratio) {
+            const pUnit = VEHICLE_PRESETS[currentVehicleType].unit;
+            document.getElementById('simProgressText').innerText = `Подолано: ${currentKm.toFixed(1)} / ${simTotalKm.toFixed(1)} км (${(ratio * 100).toFixed(0)}%)`;
+            document.getElementById('simProgressFill').style.width = `${(ratio * 100).toFixed(1)}%`;
+
+            let legTargetName = 'Зупинка 1';
+            if (simLegs.length > 0) {
+                const targetIdx = Math.min(simLegs.length - 1, Math.floor(ratio * (simLegs.length - 1)) + 1);
+                legTargetName = simLegs[targetIdx] ? simLegs[targetIdx].name : '';
+            }
+            document.getElementById('simCurrentLeg').innerText = `Їдемо до: ${legTargetName}`;
+
+            const fuelPercent = Math.min(100, Math.max(0, (simFuelLevel / simTankCapacity) * 100));
+            const fuelBar = document.getElementById('simFuelBarFill');
+            fuelBar.style.width = `${fuelPercent}%`;
+            document.getElementById('simFuelText').innerText = `${simFuelLevel.toFixed(1)} ${pUnit}`;
+
+            if (fuelPercent > 40) fuelBar.style.backgroundColor = '#10b981';
+            else if (fuelPercent > 15) fuelBar.style.backgroundColor = '#f59e0b';
+            else fuelBar.style.backgroundColor = '#ef4444';
+        }
+
+        document.getElementById('btnPlayPauseSim').addEventListener('click', toggleSimulator);
+        document.getElementById('btnResetSim').addEventListener('click', resetSimulator);
+
+        // QR Modal Controls
+        document.getElementById('btnCloseQr').addEventListener('click', () => {
+            document.getElementById('qrModal').style.display = 'none';
+        });
+
+        document.getElementById('qrModal').addEventListener('click', (e) => {
+            if (e.target.id === 'qrModal') document.getElementById('qrModal').style.display = 'none';
+        });
+
+        function showToast(msg) {
+            const t = document.getElementById('toast');
+            t.innerText = msg;
+            t.classList.add('show');
+            setTimeout(() => t.classList.remove('show'), 2600);
+        }
+    
+        // Mobile Connect Modal Logic
+        const btnOpenMobileConnect = document.getElementById('btnOpenMobileConnect');
+        const mobileConnectModal = document.getElementById('mobileConnectModal');
+        const mobileQrImg = document.getElementById('mobileQrImg');
+        const mobileUrlText = document.getElementById('mobileUrlText');
+        let cachedMobileUrl = '';
+
+        async function showMobileConnect() {
+            try {
+                const res = await fetch('/api/network_info');
+                const data = await res.json();
+                cachedMobileUrl = data.mobile_url;
+                mobileUrlText.innerText = data.mobile_url;
+                mobileQrImg.src = data.qr_code;
+                mobileConnectModal.style.display = 'flex';
+            } catch (e) {
+                console.error(e);
+                alert('Не вдалося отримати IP адресу');
+            }
+        }
+
+        if (btnOpenMobileConnect) {
+            btnOpenMobileConnect.addEventListener('click', (e) => {
+                e.stopPropagation();
+                showMobileConnect();
+            });
+        }
+
+        document.getElementById('btnCloseMobileConnect').addEventListener('click', () => {
+            mobileConnectModal.style.display = 'none';
+        });
+
+        mobileConnectModal.addEventListener('click', (e) => {
+            if (e.target.id === 'mobileConnectModal') {
+                mobileConnectModal.style.display = 'none';
+            }
+        });
+
+        window.copyMobileUrl = function() {
+            if (cachedMobileUrl) {
+                navigator.clipboard.writeText(cachedMobileUrl);
+                showToast('📋 Посилання скопійовано!');
+            }
+        };
+
+</script>
+
+    <!-- Mobile Connect Modal -->
+    <div class="modal-overlay" id="mobileConnectModal">
+        <div class="modal-box">
+            <div style="font-size: 32px; margin-bottom: 6px;">📱</div>
+            <h3 style="font-size: 17px; font-weight: 800; margin-bottom: 4px;">Відкрити сайт на телефоні</h3>
+            <p style="font-size: 12px; color: var(--text-muted); margin-bottom: 12px; line-height: 1.4;">
+                Підключіть телефон до того ж <b>Wi-Fi</b>, що й Mac, та наведіть камеру телефону на цей QR-код:
+            </p>
+            <img id="mobileQrImg" src="" alt="Mobile QR Code" style="width: 190px; height: 190px; margin: 0 auto 10px; border-radius: 10px; border: 1px solid #e2e8f0; display: block;">
+            <div style="background: #f1f5f9; padding: 8px 10px; border-radius: 8px; margin-bottom: 12px; font-family: monospace; font-size: 12px; font-weight: 700; color: #1e293b; display: flex; align-items: center; justify-content: space-between;">
+                <span id="mobileUrlText">Завантаження...</span>
+                <button onclick="copyMobileUrl()" style="background: white; border: 1px solid #cbd5e1; padding: 3px 8px; border-radius: 5px; font-size: 10.5px; cursor: pointer; font-weight: 600;">Копіювати</button>
+            </div>
+            <div style="font-size: 11px; color: #64748b; text-align: left; margin-bottom: 14px; line-height: 1.4; background: #f8fafc; padding: 7px 10px; border-radius: 7px; border: 1px solid #edf2f7;">
+                💡 <b>Якщо немає Wi-Fi роутера</b>: увімкніть на телефоні <i>«Власний хот-спот» (Точка доступу)</i> та підключіть ваш Mac до цієї мережі.
+            </div>
+            <div>
+                <button class="modal-close" id="btnCloseMobileConnect">Зрозуміло</button>
+            </div>
+        </div>
+    </div>
+
+</body>
+</html>
